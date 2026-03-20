@@ -1,0 +1,15 @@
+apiVersion: v2
+name: sample-app
+description: A production-ready sample application Helm chart for AKS
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+
+keywords:
+  - azure
+  - aks
+  - sample
+
+maintainers:
+  - name: Ali Lihic
+    url: https://github.com/alilihic

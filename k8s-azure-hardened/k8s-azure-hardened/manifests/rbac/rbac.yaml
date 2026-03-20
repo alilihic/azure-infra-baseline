@@ -1,0 +1,104 @@
+# ── Namespaces ────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: production
+  labels:
+    env: production
+    managed-by: terraform
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: staging
+  labels:
+    env: staging
+    managed-by: terraform
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    purpose: monitoring
+---
+# ── Developer Role (read + exec in non-prod) ──────────────────────────────────
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: developer
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "pods/exec", "services", "endpoints",
+                "configmaps", "persistentvolumeclaims", "events"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+---
+# ── Read-only Role (e.g. for on-call / support) ───────────────────────────────
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: readonly
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "services", "endpoints",
+                "configmaps", "events", "nodes", "namespaces"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "networkpolicies"]
+    verbs: ["get", "list", "watch"]
+---
+# ── Bind developer role to staging namespace ──────────────────────────────────
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: developer-binding
+  namespace: staging
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: developer
+subjects:
+  - kind: Group
+    name: k8s-developers     # maps to Azure AD group name
+    apiGroup: rbac.authorization.k8s.io
+---
+# ── Bind readonly role to production namespace ────────────────────────────────
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: readonly-binding
+  namespace: production
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: readonly
+subjects:
+  - kind: Group
+    name: k8s-developers
+    apiGroup: rbac.authorization.k8s.io
+---
+# ── Cluster Admin binding for ops team ───────────────────────────────────────
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cluster-admin-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: Group
+    name: k8s-admins         # maps to Azure AD group name
+    apiGroup: rbac.authorization.k8s.io
